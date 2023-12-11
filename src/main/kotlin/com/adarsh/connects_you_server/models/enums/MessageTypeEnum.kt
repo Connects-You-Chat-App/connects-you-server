@@ -1,4 +1,4 @@
-package com.adarsh.chat_server.models
+package com.adarsh.connects_you_server.models.enums
 
 enum class MessageTypeEnum {
     TEXT,

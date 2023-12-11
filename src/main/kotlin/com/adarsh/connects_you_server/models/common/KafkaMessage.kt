@@ -1,58 +1,34 @@
-package com.adarsh.chat_server.models
+package com.adarsh.connects_you_server.models.common
 
 import io.confluent.ksql.api.client.KsqlObject
 import io.vertx.core.json.JsonObject
-import jakarta.persistence.*
-import org.hibernate.annotations.CreationTimestamp
-import org.hibernate.annotations.UpdateTimestamp
 import java.text.SimpleDateFormat
 import java.util.*
 
-@Entity(name = "messages")
-data class Message(
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID,
-
-    @ManyToOne(targetEntity = Room::class)
-    val room: Room,
-
-    @ManyToOne(targetEntity = User::class)
-    val senderUser: User,
-
-    @ManyToOne(targetEntity = User::class)
-    val receiverUser: User,
-
-    val message: String,
-
-    @Enumerated(EnumType.STRING)
-    val type: MessageTypeEnum,
-
-    @ManyToOne(targetEntity = Thread::class)
-    val belongsToThread: Thread? = null,
-
-    @ManyToOne(targetEntity = Message::class)
-    val belongsToMessage: Message? = null,
-
-    @CreationTimestamp
-    @Column(nullable = false, updatable = false)
-    val createdAt: Date = Date(),
-
-    @UpdateTimestamp
-    val updatedAt: Date = Date(),
-)
-
 data class KafkaMessage(
-    val id: UUID,
-    val room_id: UUID,
-    val sender_user_id: UUID,
-    val receiver_user_id: UUID,
-    val message: String,
-    val type: String,
-    val send_at: Date,
-    val belongs_to_thread_id: UUID?,
-    val belongs_to_message_id: UUID?,
+    var id: UUID,
+    var room_id: UUID,
+    var sender_user_id: UUID,
+    var receiver_user_id: UUID,
+    var message: String,
+    var type: String,
+    var send_at: Date,
+    var belongs_to_thread_id: UUID?,
+    var belongs_to_message_id: UUID?,
 ) {
+
+    constructor() : this(
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        "",
+        "",
+        Date(),
+        null,
+        null
+    )
+
     companion object {
         private fun getStringOrNull(data: JsonObject, key: String): String? {
             return if (data.containsKey(key)) {

@@ -1,5 +1,6 @@
-package com.adarsh.chat_server.models
+package com.adarsh.connects_you_server.models.entities
 
+import com.adarsh.connects_you_server.models.enums.RoomUserRoleEnum
 import jakarta.persistence.*
 import java.io.Serializable
 import java.util.*
@@ -9,17 +10,19 @@ import java.util.*
 data class RoomUser(
     @Id
     @ManyToOne(targetEntity = Room::class)
-    val room: Room,
+    var room: Room,
 
     @Id
     @ManyToOne(targetEntity = User::class)
-    val user: User,
+    var user: User,
 
     @Enumerated(EnumType.STRING)
-    val userRole: RoomUserRoleEnum,
+    var userRole: RoomUserRoleEnum,
 
-    val joinedAt: Date = Date(),
-)
+    var joinedAt: Date = Date(),
+) {
+    constructor() : this(Room(), User(), RoomUserRoleEnum.GROUP_MEMBER)
+}
 
 class RoomUserKey : Serializable {
     lateinit var room: UUID

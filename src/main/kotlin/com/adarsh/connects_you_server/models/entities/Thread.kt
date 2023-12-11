@@ -1,4 +1,4 @@
-package com.adarsh.chat_server.models
+package com.adarsh.connects_you_server.models.entities
 
 import jakarta.persistence.*
 import org.hibernate.annotations.CreationTimestamp
@@ -9,18 +9,20 @@ import java.util.*
 data class Thread(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID,
+    var id: UUID,
 
     @ManyToOne(targetEntity = Room::class)
-    val room: Room,
+    var room: Room,
 
     @ManyToOne(targetEntity = Message::class)
-    val message: Message,
+    var message: Message,
 
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
-    val createdAt: Date,
+    @Column(updatable = false)
+    var createdAt: Date,
 
     @UpdateTimestamp
-    val updatedAt: Date
-)
+    var updatedAt: Date
+) {
+    constructor() : this(UUID.randomUUID(), Room(), Message(), Date(), Date())
+}

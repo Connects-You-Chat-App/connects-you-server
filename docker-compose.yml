@@ -76,7 +76,7 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_PASSWORD=6dd19449ae78-4f769e30f623ab43e53e
+      - POSTGRES_PASSWORD=6dd19449ae784f769e30f623ab43e53e
       - POSTGRES_USER=admin
       - POSTGRES_DB=postgres
 

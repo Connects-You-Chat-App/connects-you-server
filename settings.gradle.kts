@@ -1,1 +1,1 @@
-rootProject.name = "chat_server"
+rootProject.name = "connects_you_server"

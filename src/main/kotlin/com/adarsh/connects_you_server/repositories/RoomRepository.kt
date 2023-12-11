@@ -1,6 +1,6 @@
-package com.adarsh.chat_server.repositories
+package com.adarsh.connects_you_server.repositories
 
-import com.adarsh.chat_server.models.Room
+import com.adarsh.connects_you_server.models.entities.Room
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 import java.util.*
