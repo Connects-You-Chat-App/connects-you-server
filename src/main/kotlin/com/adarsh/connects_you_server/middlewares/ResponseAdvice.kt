@@ -31,6 +31,7 @@ class ResponseAdvice : ResponseBodyAdvice<Any> {
                 401 -> mapOf("message" to "Unauthorized")
                 403 -> mapOf("message" to "Forbidden")
                 404 -> mapOf("message" to "Not Found")
+                409 -> mapOf("message" to "Resource already exists")
                 else -> mapOf("message" to "Something went wrong")
             }
         } else if (servletResponse.status in 200..399) {

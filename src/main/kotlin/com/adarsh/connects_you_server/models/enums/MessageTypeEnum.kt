@@ -9,5 +9,17 @@ enum class MessageTypeEnum {
     PDF,
     TXT,
     XLS,
-    OTHER,
+    OTHER;
+
+    companion object {
+        fun fromString(type: String): MessageTypeEnum {
+            for (value in entries) {
+                if (value.name == type) {
+                    return value
+                }
+            }
+            throw IllegalArgumentException("Invalid message type $type")
+
+        }
+    }
 }

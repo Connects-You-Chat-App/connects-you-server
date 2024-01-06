@@ -9,7 +9,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 @Configuration
 class MiddlewareConfig(private val reqResMiddleware: ReqResMiddleware, private val authMiddleware: AuthMiddleware) :
     WebMvcConfigurer {
-    override fun addInterceptors(registry: InterceptorRegistry) {
+    final override fun addInterceptors(registry: InterceptorRegistry) {
         registry.addInterceptor(reqResMiddleware)
         registry.addInterceptor(authMiddleware)
     }

@@ -42,7 +42,5 @@ data class UserLoginDevice(
         "",
         "",
         false,
-        Date(),
-        Date()
     )
 }

@@ -29,5 +29,5 @@ data class UserSharedKey(
     @UpdateTimestamp
     var updatedAt: Date = Date(),
 ) {
-    constructor() : this(UUID.randomUUID(), User(), null, null, "", Date(), Date())
+    constructor() : this(UUID.randomUUID(), User(), null, null, "")
 }

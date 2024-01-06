@@ -5,5 +5,5 @@ import com.adarsh.connects_you_server.models.entities.User
 data class AuthResponse(
     val token: String,
     val method: String,
-    val user: User,
+    val user: User? = null
 )

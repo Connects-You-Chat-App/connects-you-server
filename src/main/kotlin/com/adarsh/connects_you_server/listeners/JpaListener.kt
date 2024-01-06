@@ -15,7 +15,7 @@ class JpaListener(
     private val createAndAssignType: CreateAndAssignType,
 ) {
     @PostConstruct
-    fun run() {
+    private fun run() {
         createAndAssignType.createType()
     }
 }
@@ -91,5 +91,3 @@ class CreateAndAssignType {
         )?.executeUpdate()
     }
 }
-
-

@@ -19,10 +19,10 @@ data class Thread(
 
     @CreationTimestamp
     @Column(updatable = false)
-    var createdAt: Date,
+    var createdAt: Date = Date(),
 
     @UpdateTimestamp
-    var updatedAt: Date
+    var updatedAt: Date = Date(),
 ) {
-    constructor() : this(UUID.randomUUID(), Room(), Message(), Date(), Date())
+    constructor() : this(UUID.randomUUID(), Room(), Message())
 }

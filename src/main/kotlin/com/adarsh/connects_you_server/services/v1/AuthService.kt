@@ -13,6 +13,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseToken
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.util.*
@@ -31,6 +32,7 @@ class AuthService(
         return FirebaseAuth.getInstance().verifyIdToken(token)
     }
 
+    @Transactional
     fun authenticate(authRequest: AuthRequest): AuthResponse {
         val incomingGoogleToken = authRequest.token
         val fcmToken = authRequest.fcmToken
@@ -39,12 +41,20 @@ class AuthService(
         val existingUser = userRepository.findByEmail(userPayload.email)
         val user: User
         val method: String
-        if (existingUser == null) {
+        if (existingUser.isPresent) {
+            user = existingUser.get()
+            userLoginRepository.updateFcmTokenByUserIdAndDeviceId(
+                userId = user.id,
+                deviceId = deviceId,
+                fcmToken = fcmToken
+            )
+            method = "login"
+        } else {
             user = User(
                 email = userPayload.email,
                 isEmailVerified = userPayload.isEmailVerified,
                 authProvider = "google",
-                name = userPayload.name,
+                name = userPayload.name ?: "Unknown",
                 photoUrl = userPayload.picture
             )
             val userLoginHistory = UserLoginDevice(
@@ -58,15 +68,6 @@ class AuthService(
             userRepository.save(user)
             userLoginRepository.save(userLoginHistory)
             method = "signup"
-        } else {
-            user = existingUser
-            userLoginRepository.updateFcmTokenByUserIdAndDeviceId(
-                userId = user.id,
-                deviceId = deviceId,
-                fcmToken = fcmToken
-            )
-
-            method = "login"
         }
 
 
@@ -91,6 +92,25 @@ class AuthService(
             userId = UUID.fromString(user.id),
             deviceId = user.deviceId,
             isActive = false
+        )
+    }
+
+    fun refreshToken(user: UserJWTClaim): AuthResponse {
+        userLoginRepository.updateIsActiveByUserIdAndDeviceId(
+            userId = UUID.fromString(user.id),
+            deviceId = user.deviceId,
+            isActive = true
+        )
+        return AuthResponse(
+            token = jwtUtils.sign(
+                UserJWTClaim(
+                    id = user.id,
+                    name = user.name,
+                    email = user.email,
+                    deviceId = user.deviceId,
+                ),
+            ),
+            method = "refresh",
         )
     }
 

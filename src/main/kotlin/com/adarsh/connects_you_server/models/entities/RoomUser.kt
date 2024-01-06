@@ -1,6 +1,7 @@
 package com.adarsh.connects_you_server.models.entities
 
 import com.adarsh.connects_you_server.models.enums.RoomUserRoleEnum
+import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import java.io.Serializable
 import java.util.*
@@ -8,6 +9,7 @@ import java.util.*
 @Entity(name = "room_users")
 @IdClass(RoomUserKey::class)
 data class RoomUser(
+    @JsonIgnore
     @Id
     @ManyToOne(targetEntity = Room::class)
     var room: Room,

@@ -4,6 +4,7 @@ import com.adarsh.connects_you_server.models.entities.Room
 import com.adarsh.connects_you_server.models.entities.User
 import com.adarsh.connects_you_server.models.entities.UserSharedKey
 import com.adarsh.connects_you_server.models.requests.SaveSharedKeyRequest
+import com.adarsh.connects_you_server.models.responses.GetUserSharedKeysResponse
 import com.adarsh.connects_you_server.repositories.UserSharedKeyRepository
 import org.springframework.stereotype.Service
 import java.util.*
@@ -12,8 +13,8 @@ import java.util.*
 class SharedKeyService(
     private val userSharedKeyRepository: UserSharedKeyRepository,
 ) {
-    fun getAllSharedKeys(userId: UUID): List<UserSharedKey> =
-        userSharedKeyRepository.findAllByCreatorUserId(userId)
+    fun getAllSharedKeys(userId: UUID): GetUserSharedKeysResponse =
+        GetUserSharedKeysResponse(userSharedKeyRepository.findAllByCreatorUserId(userId))
 
     fun saveUserKeys(userId: UUID, keys: List<SaveSharedKeyRequest>) {
         val userSharedKeys = keys.map { key ->

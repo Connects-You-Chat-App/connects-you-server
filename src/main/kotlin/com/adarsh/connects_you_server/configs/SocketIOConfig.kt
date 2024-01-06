@@ -3,9 +3,9 @@ package com.adarsh.connects_you_server.configs
 import com.adarsh.connects_you_server.models.common.UserJWTClaim
 import com.adarsh.connects_you_server.utils.JWTUtils
 import com.corundumstudio.socketio.AuthorizationResult
+import com.corundumstudio.socketio.HandshakeData
 import com.corundumstudio.socketio.SocketIOServer
 import jakarta.annotation.PreDestroy
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import com.corundumstudio.socketio.Configuration as SocketIOConfiguration
@@ -17,11 +17,17 @@ class SocketIOConfig(
     @Value("\${socketio.host}") private val host: String,
     @Value("\${socketio.port}") private val port: Int
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
     private lateinit var server: SocketIOServer
 
     companion object {
-        val userJWTClaims = mutableMapOf<String, UserJWTClaim>()
+        private val userJWTClaims = mutableMapOf<String, UserJWTClaim>()
+        fun getUserJWTClaim(handshakeData: HandshakeData): UserJWTClaim? {
+            return userJWTClaims[handshakeData.toString()]
+        }
+
+        fun removeUserJWTClaim(handshakeData: HandshakeData) {
+            userJWTClaims.remove(handshakeData.toString())
+        }
     }
 
     @Bean
@@ -44,22 +50,14 @@ class SocketIOConfig(
             }
         }
 
-        server = SocketIOServer(config).apply {
-            addConnectListener {
-                println("userJWTClaims: $userJWTClaims, it: ${it.handshakeData}")
-                logger.info("Client connected: ${it.remoteAddress}, Session ID: ${it.sessionId} ${userJWTClaims[it.handshakeData.toString()]}")
-            }
-            addDisconnectListener {
-                logger.info("Client disconnected: ${it.remoteAddress}, Session ID: ${it.sessionId}")
-                userJWTClaims.remove(it.toString())
-            }
-        }
+        server = SocketIOServer(config)
+        
         server.start()
         return server
     }
 
     @PreDestroy
-    fun stopSocketIOServer() {
+    final fun stopSocketIOServer() {
         if ((::server).isInitialized)
             server.stop()
     }

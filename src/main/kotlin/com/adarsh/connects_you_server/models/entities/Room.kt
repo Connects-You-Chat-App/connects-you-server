@@ -10,7 +10,7 @@ import java.util.*
 data class Room(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    var id: UUID,
+    var id: UUID = UUID.randomUUID(),
 
     var name: String? = null,
 

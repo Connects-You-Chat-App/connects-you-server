@@ -9,7 +9,7 @@ import org.springframework.web.servlet.HandlerInterceptor
 
 @Component
 class ReqResMiddleware : HandlerInterceptor {
-    private val logger = LoggerFactory.getLogger(ReqResMiddleware::class.java)
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     @Throws(Exception::class)
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {

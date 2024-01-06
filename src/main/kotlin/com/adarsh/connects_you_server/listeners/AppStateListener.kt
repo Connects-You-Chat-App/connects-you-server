@@ -15,11 +15,10 @@ class AppStateListener(
     @Value("\${firebase.admin.service.account.file.path}") private val serviceAccountKeyPath: String
 ) {
     @EventListener(ApplicationStartedEvent::class)
-    fun handleAppStartedEvent() {
-        val serviceAccount =
-            FileInputStream(serviceAccountKeyPath)
+    final fun handleAppStartedEvent() {
+        val serviceAccount = FileInputStream(serviceAccountKeyPath)
 
-        val options = FirebaseOptions.Builder()
+        val options = FirebaseOptions.builder()
             .setCredentials(GoogleCredentials.fromStream(serviceAccount))
             .build()
 
