@@ -6,3 +6,6 @@ kill-ports: ## Kill ports
 docker-up: ## Docker up
 	docker-compose up -d
 	@echo "Docker up"
+
+format:
+	ktlint -F "src/**/*.kt"

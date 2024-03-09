@@ -1,1 +1,1 @@
-rootProject.name = "connects_you_server"
+rootProject.name = "connectsYouServer"
