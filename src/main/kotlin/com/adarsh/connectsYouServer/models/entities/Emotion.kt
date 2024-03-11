@@ -9,7 +9,7 @@ import java.util.UUID
 @Entity
 data class Emotion(
     @Id
-    var id: UUID,
+    var id: UUID = UUID.randomUUID(),
     var emotion: String,
     @ManyToOne(targetEntity = User::class)
     var senderUser: User,

@@ -21,7 +21,7 @@ class CommonService(
         user: UserJWTClaim,
         updatedAt: Date,
     ): Map<String, Any> {
-        println(updatedAt.toString())
+        println(updatedAt.toInstant().toString())
 
         val userId = UUID.fromString(user.id)
         var sharedKeys: List<UserSharedKey>
@@ -43,6 +43,7 @@ class CommonService(
                     Pair(sharedKeysResponse.await(), roomIdsResponse.await())
                 }.await()
             val roomUUIDs = roomIds.map { UUID.fromString(it) }
+            println("roomUUIDs: $roomUUIDs")
             val roomsAsync = async { roomService.fetchUpdatedDataAfter(userId, roomUUIDs, updatedAt) }
             val messagesAsync =
                 async {
@@ -52,6 +53,7 @@ class CommonService(
             sharedKeys = sharedKeysResponse
             rooms = roomsAsync.await()
             messages = messagesAsync.await()
+            println("rooms: $rooms")
         }
 
         val messageList =
@@ -64,7 +66,6 @@ class CommonService(
                 var senderUser: Map<*, *>? = null
                 usersArr.forEach { user ->
                     val userMap = Json.decodeValue(user.toString(), Map::class.java)
-                    println("userId: $senderUserId, userMap: ${userMap["id"]}")
                     if (userMap["id"].toString() == senderUserId.toString()) {
                         senderUser = userMap
                     } else {

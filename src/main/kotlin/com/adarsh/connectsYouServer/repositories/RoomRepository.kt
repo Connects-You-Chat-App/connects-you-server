@@ -61,7 +61,7 @@ interface RoomRepository : JpaRepository<Room, UUID> {
             FROM rooms r
             LEFT JOIN room_users ru ON ru.room_id = r.id
             LEFT JOIN users u ON u.id = ru.user_id
-            WHERE r.id in (:roomIds) AND (r.updated_at > :updatedAt OR u.updated_at > :updatedAt or ru.joined_at > :updatedAt)
+            WHERE r.id in (:roomIds) AND (r.updated_at > :updatedAt OR u.updated_at > :updatedAt OR ru.joined_at > :updatedAt)
             GROUP BY r.id
         """,
         nativeQuery = true,

@@ -25,7 +25,7 @@ class CommonController(
         return ResponseEntity.ok(
             commonService.getUpdatedData(
                 user,
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").parse(updatedAt),
+                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").parse(updatedAt),
             ),
         )
     }

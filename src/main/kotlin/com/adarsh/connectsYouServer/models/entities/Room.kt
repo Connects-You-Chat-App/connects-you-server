@@ -5,8 +5,6 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.ManyToOne
 import org.hibernate.annotations.CreationTimestamp
@@ -17,7 +15,6 @@ import java.util.UUID
 @Entity(name = "rooms")
 data class Room(
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID = UUID.randomUUID(),
     var name: String? = null,
     var logoUrl: String? = null,

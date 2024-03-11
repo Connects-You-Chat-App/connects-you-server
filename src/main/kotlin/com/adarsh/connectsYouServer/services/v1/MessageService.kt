@@ -45,6 +45,7 @@ class MessageService(
                         }
                 },
             )
+        print("incoming messageId: ${sendMessageRequest.messageId} and saved messageId: ${message.id}")
         kafkaUtils.producer!!.send(
             kafkaUtils.createRoomProducerRecord(
                 sendMessageRequest.roomId,
