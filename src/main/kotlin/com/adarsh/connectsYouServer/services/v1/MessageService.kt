@@ -3,14 +3,18 @@ package com.adarsh.connectsYouServer.services.v1
 import com.adarsh.connectsYouServer.models.common.KafkaMessage
 import com.adarsh.connectsYouServer.models.common.UserJWTClaim
 import com.adarsh.connectsYouServer.models.entities.Message
+import com.adarsh.connectsYouServer.models.entities.MessageStatus
 import com.adarsh.connectsYouServer.models.entities.Room
 import com.adarsh.connectsYouServer.models.entities.User
+import com.adarsh.connectsYouServer.models.enums.KafkaMessageType
+import com.adarsh.connectsYouServer.models.enums.KafkaMessageType.ROOM_MESSAGE_READ
 import com.adarsh.connectsYouServer.models.enums.MessageTypeEnum
 import com.adarsh.connectsYouServer.models.enums.SocketEventType
 import com.adarsh.connectsYouServer.models.requests.EditMessageRequest
 import com.adarsh.connectsYouServer.models.requests.SendMessageRequest
 import com.adarsh.connectsYouServer.models.responses.MessageResponse
 import com.adarsh.connectsYouServer.repositories.MessageRepository
+import com.adarsh.connectsYouServer.repositories.MessageStatusRepository
 import com.adarsh.connectsYouServer.utils.KafkaUtils
 import org.springframework.stereotype.Service
 import java.util.Date
@@ -19,7 +23,9 @@ import java.util.UUID
 @Service
 class MessageService(
     private val messageRepository: MessageRepository,
+    private val messageStatusRepository: MessageStatusRepository,
     private val kafkaUtils: KafkaUtils,
+    messageStatus: MessageStatusRepository,
 ) {
     fun fetchMessagesByRoomId(roomId: UUID) = messageRepository.findByRoomId(roomId)
 
@@ -95,4 +101,78 @@ class MessageService(
         roomIds,
         updatedAt,
     )
+
+    fun updateMessageStatusesToDelivered(
+        messageId: String,
+        userIds: List<String>,
+        roomId: String,
+    ) {
+        messageStatusRepository.saveAll(
+            userIds.map {
+                MessageStatus().apply {
+                    message = Message().apply { id = UUID.fromString(messageId) }
+                    user = User().apply { id = UUID.fromString(it) }
+                    delivered = true
+                    deliveredAt = Date()
+                }
+            },
+        )
+
+        kafkaUtils.producer!!.send(
+            kafkaUtils.createCommonProducerRecord(
+                KafkaMessage(
+                    SocketEventType.ROOM_MESSAGE_DELIVERED,
+                    KafkaMessageType.ROOM_MESSAGE_DELIVERED,
+                    data =
+                        mapOf(
+                            "roomId" to roomId,
+                            "messageId" to messageId,
+                            "userIds" to userIds,
+                        ),
+                ),
+            ),
+        )
+    }
+
+    fun updateMessageStatusesToRead(
+        readUser: UserJWTClaim,
+        roomId: String,
+        messageIds: List<UUID>,
+    ) {
+        val userId = UUID.fromString(readUser.id)
+        messageStatusRepository.findAllByMessageIdInAndUserId(messageIds, userId).forEach {
+            it.read = true
+            it.readAt = Date()
+        }
+        if (messageStatusRepository.findAllByMessageIdInAndUserId(messageIds, userId).isEmpty()) {
+            messageStatusRepository.saveAll(
+                messageIds.map {
+                    MessageStatus().apply {
+                        message = Message().apply { id = it }
+                        user = User().apply { id = userId }
+                        read = true
+                        readAt = Date()
+                        delivered = true
+                        deliveredAt = Date()
+                    }
+                },
+            )
+        } else {
+            messageStatusRepository.saveAll(messageStatusRepository.findAllByMessageIdInAndUserId(messageIds, userId))
+        }
+
+        kafkaUtils.producer!!.send(
+            kafkaUtils.createCommonProducerRecord(
+                KafkaMessage(
+                    SocketEventType.ROOM_MESSAGE_READ,
+                    ROOM_MESSAGE_READ,
+                    mapOf(
+                        "messageIds" to messageIds.map { it.toString() },
+                        "userId" to readUser.id,
+                        "roomId" to roomId,
+                    ),
+                ),
+            ),
+        )
+    }
 }

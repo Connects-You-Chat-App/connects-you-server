@@ -3,6 +3,7 @@ package com.adarsh.connectsYouServer.controllers.v1
 import com.adarsh.connectsYouServer.annotations.AuthRequired
 import com.adarsh.connectsYouServer.models.common.UserJWTClaim
 import com.adarsh.connectsYouServer.models.requests.EditMessageRequest
+import com.adarsh.connectsYouServer.models.requests.MarkMessageAsReadRequest
 import com.adarsh.connectsYouServer.models.requests.SendMessageRequest
 import com.adarsh.connectsYouServer.models.responses.MessageResponse
 import com.adarsh.connectsYouServer.models.responses.RoomMessagesResponse
@@ -39,6 +40,20 @@ class MessageController(
         @RequestBody editMessageRequest: EditMessageRequest,
     ): ResponseEntity<Unit> {
         messageService.editMessage(user, editMessageRequest)
+        return ResponseEntity.ok().build()
+    }
+
+    @AuthRequired
+    @PostMapping("/mark-as-read")
+    fun markAsRead(
+        @RequestAttribute("user") user: UserJWTClaim,
+        @RequestBody markMessageAsReadRequest: MarkMessageAsReadRequest,
+    ): ResponseEntity<Unit> {
+        messageService.updateMessageStatusesToRead(
+            user,
+            markMessageAsReadRequest.roomId,
+            markMessageAsReadRequest.messageIds.map { UUID.fromString(it) },
+        )
         return ResponseEntity.ok().build()
     }
 

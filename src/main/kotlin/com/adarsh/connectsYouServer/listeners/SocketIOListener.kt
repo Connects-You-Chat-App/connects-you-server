@@ -4,6 +4,7 @@ import com.adarsh.connectsYouServer.configs.SocketIOConfig
 import com.adarsh.connectsYouServer.models.common.KafkaMessage
 import com.adarsh.connectsYouServer.models.enums.KafkaMessageType
 import com.adarsh.connectsYouServer.models.enums.SocketEventType
+import com.adarsh.connectsYouServer.services.v1.MessageService
 import com.adarsh.connectsYouServer.services.v1.RoomService
 import com.adarsh.connectsYouServer.utils.KafkaUtils
 import com.corundumstudio.socketio.AckRequest
@@ -21,6 +22,7 @@ class SocketIOListener(
     private val kafkaConsumers: KafkaConsumers,
     private val redisTemplate: RedisTemplate<String, Any>,
     private val roomService: RoomService,
+    private val messageService: MessageService,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -60,8 +62,27 @@ class SocketIOListener(
     }
 
     private final fun consumeRoomMessages(kafkaMessage: KafkaMessage) {
-        socketIOServer.getRoomOperations(kafkaMessage.data!!["roomId"].toString())
-            .sendEvent(kafkaMessage.eventType.toString(), kafkaMessage.data)
+        val data = (kafkaMessage.data as Map<String, *>)
+        val roomId = kafkaMessage.data!!["roomId"].toString()
+        val roomOperation = socketIOServer.getRoomOperations(roomId)
+        roomOperation.sendEvent(kafkaMessage.eventType.toString(), data)
+        if (kafkaMessage.eventType == SocketEventType.ROOM_MESSAGE) {
+            val userIds = mutableListOf<String>()
+            var senderUserClient: SocketIOClient? = null
+            for (client in roomOperation.clients) {
+                val user = SocketIOConfig.getUserJWTClaim(client.handshakeData)!!
+                if (user.id == (data["senderUser"] as Map<String, *>)["id"].toString()) {
+                    senderUserClient = client
+                    continue
+                }
+                userIds.add(user.id)
+            }
+            messageService.updateMessageStatusesToDelivered(
+                data["id"].toString(),
+                userIds,
+                roomId,
+            )
+        }
     }
 
     private final fun consumerCommonMessages(kafkaMessage: KafkaMessage) {
@@ -76,6 +97,25 @@ class SocketIOListener(
 
             KafkaMessageType.GROUP_JOINED -> {
                 roomService.sendGroupJoinedEvent(kafkaMessage)
+            }
+
+            KafkaMessageType.ROOM_MESSAGE_DELIVERED -> {
+                val userIdSet = (kafkaMessage.data!!["userIds"] as List<String>).toSet()
+                socketIOServer.allClients.filter {
+                    val user = SocketIOConfig.getUserJWTClaim(it.handshakeData)!!
+                    userIdSet.contains(user.id)
+                }.map {
+                    it.sendEvent(kafkaMessage.eventType.toString(), kafkaMessage.data)
+                }
+            }
+
+            KafkaMessageType.ROOM_MESSAGE_READ -> {
+                socketIOServer.allClients.filter {
+                    val user = SocketIOConfig.getUserJWTClaim(it.handshakeData)!!
+                    user.id == kafkaMessage.data!!["userId"] as String
+                }.map {
+                    it.sendEvent(kafkaMessage.eventType.toString(), kafkaMessage.data)
+                }
             }
 
             else -> {

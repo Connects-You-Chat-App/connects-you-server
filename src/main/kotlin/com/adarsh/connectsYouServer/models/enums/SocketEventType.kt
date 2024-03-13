@@ -11,6 +11,8 @@ enum class SocketEventType {
     ROOM_MESSAGE,
     ROOM_MESSAGE_EDIT,
     USER_STATUS,
+    ROOM_MESSAGE_DELIVERED,
+    ROOM_MESSAGE_READ,
     ;
 
     companion object {
