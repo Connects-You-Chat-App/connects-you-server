@@ -30,8 +30,8 @@ data class RoomWithRoomUsers(
                         id = UUID.fromString(userMap["id"].toString()),
                         name = userMap["name"].toString(),
                         email = userMap["email"].toString(),
-                        photoUrl = userMap["photoUrl"]?.toString(),
-                        description = userMap["description"]?.toString(),
+                        photoUrl = if (userMap["photoUrl"] != null) userMap["photoUrl"].toString() else null,
+                        description = if (userMap["description"] != null) userMap["description"].toString() else null,
                         publicKey = userMap["publicKey"].toString(),
                     )
                 }
@@ -41,8 +41,8 @@ data class RoomWithRoomUsers(
                 } else {
                     ""
                 }
-            val roomDescription = json["description"]?.toString()
-            val roomLogoUrl = json["logoUrl"]?.toString()
+            val roomDescription = if (json["description"] != null) json["description"].toString() else null
+            val roomLogoUrl = if (json["logoUrl"] != null) json["logoUrl"].toString() else null
 
             return RoomWithRoomUsers(
                 id = UUID.fromString(json["id"].toString()),

@@ -5,11 +5,11 @@ import com.adarsh.connectsYouServer.models.common.UserJWTClaim
 import com.adarsh.connectsYouServer.models.entities.UserSharedKey
 import com.adarsh.connectsYouServer.models.responses.GetUserSharedKeysResponse
 import io.vertx.core.json.Json
+import java.util.Date
+import java.util.UUID
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.springframework.stereotype.Service
-import java.util.Date
-import java.util.UUID
 
 @Service
 class CommonService(
@@ -72,6 +72,10 @@ class CommonService(
                         otherUser = userMap
                     }
                 }
+                val messageStatuses =
+                    (it["messageStatuses"] as Array<*>).map { messageStatus ->
+                        Json.decodeValue(messageStatus.toString(), Map::class.java)
+                    }
 
                 mapOf(
                     "id" to it["id"],
@@ -92,6 +96,7 @@ class CommonService(
                             "updatedAt" to room["updatedAt"],
                         ),
                     "otherUser" to otherUser,
+                    "messageStatuses" to messageStatuses,
                 )
             }
 

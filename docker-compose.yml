@@ -82,10 +82,12 @@ services:
       - POSTGRES_PASSWORD=6dd19449ae784f769e30f623ab43e53e
       - POSTGRES_USER=admin
       - POSTGRES_DB=postgres
+    command: [ "postgres", "-c", "log_statement=all" ]
 
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-    restart: on-failure
-    command: "redis-server --notify-keyspace-events Ex"
+
+#  redis:
+#    image: redis:alpine
+#    ports:
+#      - "6379:6379"
+#    restart: on-failure
+#    command: "redis-server --notify-keyspace-events Ex"

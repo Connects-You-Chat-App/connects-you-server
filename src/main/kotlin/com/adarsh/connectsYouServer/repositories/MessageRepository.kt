@@ -13,7 +13,7 @@ interface MessageRepository : JpaRepository<Message, UUID> {
 
     @Query(
         value = """
-            select 
+            select
                 m.id as "id",
                 m.message as "message",
                 m.created_at as "createdAt",
@@ -32,6 +32,13 @@ interface MessageRepository : JpaRepository<Message, UUID> {
                     'photoUrl', u.photo_url,
                     'publicKey', u.public_key
                 )) AS "users",
+                COALESCE(ARRAY_AGG(JSONB_BUILD_OBJECT(
+                    'userId', ms2.user_id,
+                    'deliveredAt', ms2.delivered_at,
+                    'readAt', ms2.read_at,
+                    'delivered', ms2.delivered,
+                    'read', ms2.read
+                )) filter (where ms2.message_id is not null), ARRAY[]\:\:jsonb[]) AS "messageStatuses",
                 ARRAY_AGG(JSONB_BUILD_OBJECT(
                     'id', r.id,
                     'name', r.name,
@@ -39,10 +46,12 @@ interface MessageRepository : JpaRepository<Message, UUID> {
                     'logoUrl', r.logo_url
                 )) AS "room"
             from messages m
-            left join rooms r on r.id = m.room_id
-            left join room_users ru on ru.room_id = r.id and (r.type = 'DUET' or m.sender_user_id = ru.user_id)
-            left join users u on u.id = ru.user_id
-            where m.room_id in :roomIds and m.updated_at > :updatedAt
+                left join rooms r on r.id = m.room_id
+                left join room_users ru on ru.room_id = r.id and (r.type = 'DUET' or m.sender_user_id = ru.user_id)
+                left join users u on u.id = ru.user_id
+                left join message_status ms2 on ms2.message_id = m.id
+            where 
+                m.room_id in :roomIds and m.updated_at > :updatedAt or (ms2.delivered_at > :updatedAt or ms2.read_at > :updatedAt)
             group by m.id
         """,
         nativeQuery = true,
