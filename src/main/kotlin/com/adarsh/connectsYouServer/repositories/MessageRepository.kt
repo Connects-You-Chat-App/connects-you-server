@@ -32,13 +32,13 @@ interface MessageRepository : JpaRepository<Message, UUID> {
                     'photoUrl', u.photo_url,
                     'publicKey', u.public_key
                 )) AS "users",
-                COALESCE(ARRAY_AGG(JSONB_BUILD_OBJECT(
+                COALESCE(ARRAY_AGG(DISTINCT(JSONB_BUILD_OBJECT(
                     'userId', ms2.user_id,
                     'deliveredAt', ms2.delivered_at,
                     'readAt', ms2.read_at,
-                    'delivered', ms2.delivered,
-                    'read', ms2.read
-                )) filter (where ms2.message_id is not null), ARRAY[]\:\:jsonb[]) AS "messageStatuses",
+                    'isDelivered', ms2.is_delivered,
+                    'isRead', ms2.is_read
+                ))) filter (where ms2.message_id is not null), ARRAY[]\:\:jsonb[]) AS "messageStatuses",
                 ARRAY_AGG(JSONB_BUILD_OBJECT(
                     'id', r.id,
                     'name', r.name,
@@ -49,7 +49,7 @@ interface MessageRepository : JpaRepository<Message, UUID> {
                 left join rooms r on r.id = m.room_id
                 left join room_users ru on ru.room_id = r.id and (r.type = 'DUET' or m.sender_user_id = ru.user_id)
                 left join users u on u.id = ru.user_id
-                left join message_status ms2 on ms2.message_id = m.id
+                left join message_status ms2 on ms2.message_id = m.id and m.sender_user_id = :userId
             where 
                 m.room_id in :roomIds and m.updated_at > :updatedAt or (ms2.delivered_at > :updatedAt or ms2.read_at > :updatedAt)
             group by m.id
@@ -57,7 +57,20 @@ interface MessageRepository : JpaRepository<Message, UUID> {
         nativeQuery = true,
     )
     fun findMessagesByRoomIdsAfter(
+        userId: UUID,
         roomIds: List<UUID>,
         updatedAt: Date,
     ): List<Map<*, *>>
+    // TODO: remove messageStatuses for non-sender user
+
+    @Query(
+        value = """
+            select
+                m.sender_user_id
+            from messages m
+            where m.id in :messageIds
+        """,
+        nativeQuery = true,
+    )
+    fun findSenderUserIdByMessageIdsIn(messageIds: List<UUID>): List<UUID>
 }

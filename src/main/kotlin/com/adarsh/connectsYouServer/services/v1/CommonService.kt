@@ -5,11 +5,10 @@ import com.adarsh.connectsYouServer.models.common.UserJWTClaim
 import com.adarsh.connectsYouServer.models.entities.UserSharedKey
 import com.adarsh.connectsYouServer.models.responses.GetUserSharedKeysResponse
 import io.vertx.core.json.Json
-import java.util.Date
-import java.util.UUID
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.springframework.stereotype.Service
+import java.util.*
 
 @Service
 class CommonService(
@@ -43,17 +42,30 @@ class CommonService(
                     Pair(sharedKeysResponse.await(), roomIdsResponse.await())
                 }.await()
             val roomUUIDs = roomIds.map { UUID.fromString(it) }
-            println("roomUUIDs: $roomUUIDs")
             val roomsAsync = async { roomService.fetchUpdatedDataAfter(userId, roomUUIDs, updatedAt) }
             val messagesAsync =
                 async {
-                    messageService.fetchMessagesByRoomIdsAfter(roomUUIDs, updatedAt)
+                    messageService.fetchMessagesByRoomIdsAfter(
+                        userId,
+                        roomUUIDs,
+                        updatedAt,
+                    )
                 }
 
             sharedKeys = sharedKeysResponse
-            rooms = roomsAsync.await()
+
             messages = messagesAsync.await()
-            println("rooms: $rooms")
+            val messageIdsNotSentByMe =
+                messages.filter {
+                    it["senderUserId"].toString() != user.id
+                }.map { it["id"] as UUID }
+
+            println("messageIdsNotSentByMe: $messageIdsNotSentByMe")
+            async {
+                messageService.updateMessageStatusesToDelivered(user, messageIdsNotSentByMe)
+            }.await()
+
+            rooms = roomsAsync.await()
         }
 
         val messageList =
@@ -74,7 +86,14 @@ class CommonService(
                 }
                 val messageStatuses =
                     (it["messageStatuses"] as Array<*>).map { messageStatus ->
-                        Json.decodeValue(messageStatus.toString(), Map::class.java)
+                        val status = Json.decodeValue(messageStatus.toString(), Map::class.java)
+                        mapOf(
+                            "userId" to status["userId"].toString(),
+                            "deliveredAt" to status["deliveredAt"],
+                            "readAt" to status["readAt"],
+                            "isDelivered" to status["isDelivered"],
+                            "isRead" to status["isRead"],
+                        )
                     }
 
                 mapOf(

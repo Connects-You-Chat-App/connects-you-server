@@ -51,7 +51,6 @@ class MessageController(
     ): ResponseEntity<Unit> {
         messageService.updateMessageStatusesToRead(
             user,
-            markMessageAsReadRequest.roomId,
             markMessageAsReadRequest.messageIds.map { UUID.fromString(it) },
         )
         return ResponseEntity.ok().build()

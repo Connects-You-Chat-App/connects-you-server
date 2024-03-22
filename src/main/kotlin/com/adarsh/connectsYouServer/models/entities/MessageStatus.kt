@@ -17,8 +17,8 @@ data class MessageStatus(
     @Id
     @ManyToOne(targetEntity = User::class)
     var user: User,
-    var delivered: Boolean = false,
-    var read: Boolean = false,
+    var isDelivered: Boolean = false,
+    var isRead: Boolean = false,
     var deliveredAt: Date? = null,
     var readAt: Date? = null,
 ) {

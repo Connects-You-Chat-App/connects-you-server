@@ -1,5 +1,6 @@
 package com.adarsh.connectsYouServer.services.v1
 
+import com.adarsh.connectsYouServer.configs.SocketIOConfig
 import com.adarsh.connectsYouServer.models.common.KafkaMessage
 import com.adarsh.connectsYouServer.models.common.UserJWTClaim
 import com.adarsh.connectsYouServer.models.entities.Message
@@ -7,7 +8,6 @@ import com.adarsh.connectsYouServer.models.entities.MessageStatus
 import com.adarsh.connectsYouServer.models.entities.Room
 import com.adarsh.connectsYouServer.models.entities.User
 import com.adarsh.connectsYouServer.models.enums.KafkaMessageType
-import com.adarsh.connectsYouServer.models.enums.KafkaMessageType.ROOM_MESSAGE_READ
 import com.adarsh.connectsYouServer.models.enums.MessageTypeEnum
 import com.adarsh.connectsYouServer.models.enums.SocketEventType
 import com.adarsh.connectsYouServer.models.requests.EditMessageRequest
@@ -16,16 +16,16 @@ import com.adarsh.connectsYouServer.models.responses.MessageResponse
 import com.adarsh.connectsYouServer.repositories.MessageRepository
 import com.adarsh.connectsYouServer.repositories.MessageStatusRepository
 import com.adarsh.connectsYouServer.utils.KafkaUtils
+import com.corundumstudio.socketio.SocketIOServer
 import org.springframework.stereotype.Service
-import java.util.Date
-import java.util.UUID
+import java.util.*
 
 @Service
 class MessageService(
     private val messageRepository: MessageRepository,
     private val messageStatusRepository: MessageStatusRepository,
     private val kafkaUtils: KafkaUtils,
-    messageStatus: MessageStatusRepository,
+    private val socketIOServer: SocketIOServer,
 ) {
     fun fetchMessagesByRoomId(roomId: UUID) = messageRepository.findByRoomId(roomId)
 
@@ -47,7 +47,9 @@ class MessageService(
                         }
                     forwardedFromRoom =
                         sendMessageRequest.forwardedFromRoomId?.let {
-                            Room().apply { id = UUID.fromString(it) }
+                            Room().apply {
+                                id = UUID.fromString(it)
+                            }
                         }
                 },
             )
@@ -95,9 +97,11 @@ class MessageService(
     }
 
     fun fetchMessagesByRoomIdsAfter(
+        userId: UUID,
         roomIds: List<UUID>,
         updatedAt: Date,
     ) = messageRepository.findMessagesByRoomIdsAfter(
+        userId,
         roomIds,
         updatedAt,
     )
@@ -105,15 +109,15 @@ class MessageService(
     fun updateMessageStatusesToDelivered(
         messageId: String,
         userIds: List<String>,
-        roomId: String,
     ) {
+        val date = Date()
         messageStatusRepository.saveAll(
             userIds.map {
                 MessageStatus().apply {
                     message = Message().apply { id = UUID.fromString(messageId) }
                     user = User().apply { id = UUID.fromString(it) }
-                    delivered = true
-                    deliveredAt = Date()
+                    isDelivered = true
+                    deliveredAt = date
                 }
             },
         )
@@ -125,9 +129,9 @@ class MessageService(
                     KafkaMessageType.ROOM_MESSAGE_DELIVERED,
                     data =
                         mapOf(
-                            "roomId" to roomId,
-                            "messageId" to messageId,
+                            "messageIds" to listOf(messageId),
                             "userIds" to userIds,
+                            "date" to date,
                         ),
                 ),
             ),
@@ -136,43 +140,128 @@ class MessageService(
 
     fun updateMessageStatusesToRead(
         readUser: UserJWTClaim,
-        roomId: String,
         messageIds: List<UUID>,
     ) {
+        val messageIdsSet = messageIds.toSet()
         val userId = UUID.fromString(readUser.id)
-        messageStatusRepository.findAllByMessageIdInAndUserId(messageIds, userId).forEach {
-            it.read = true
-            it.readAt = Date()
+        val date = Date()
+        val statuses = messageStatusRepository.findAllByMessageIdInAndUserId(messageIds, userId)
+        val existingStatusSet = mutableSetOf<UUID>()
+        var actualUpdateCount = 0
+        statuses.forEach {
+            if (!it.isRead) {
+                actualUpdateCount++
+                it.isRead = true
+                it.readAt = date
+            }
+            existingStatusSet.add(it.message.id)
         }
-        if (messageStatusRepository.findAllByMessageIdInAndUserId(messageIds, userId).isEmpty()) {
+        val missingMessageIds = messageIdsSet.minus(existingStatusSet)
+        if (missingMessageIds.isNotEmpty()) {
             messageStatusRepository.saveAll(
-                messageIds.map {
+                missingMessageIds.map {
                     MessageStatus().apply {
                         message = Message().apply { id = it }
                         user = User().apply { id = userId }
-                        read = true
-                        readAt = Date()
-                        delivered = true
-                        deliveredAt = Date()
+                        isRead = true
+                        readAt = date
+                        isDelivered = true
+                        deliveredAt = date
                     }
                 },
             )
+
+            actualUpdateCount = messageIds.size
         } else {
-            messageStatusRepository.saveAll(messageStatusRepository.findAllByMessageIdInAndUserId(messageIds, userId))
+            if (actualUpdateCount > 0) {
+                messageStatusRepository.saveAll(statuses)
+            }
         }
 
-        kafkaUtils.producer!!.send(
-            kafkaUtils.createCommonProducerRecord(
-                KafkaMessage(
-                    SocketEventType.ROOM_MESSAGE_READ,
-                    ROOM_MESSAGE_READ,
-                    mapOf(
-                        "messageIds" to messageIds.map { it.toString() },
-                        "userId" to readUser.id,
-                        "roomId" to roomId,
+        if (actualUpdateCount > 0) {
+            kafkaUtils.producer!!.send(
+                kafkaUtils.createCommonProducerRecord(
+                    KafkaMessage(
+                        SocketEventType.ROOM_MESSAGE_READ,
+                        KafkaMessageType.ROOM_MESSAGE_READ,
+                        mapOf(
+                            "messageIds" to messageIds.map { it.toString() },
+                            "userIds" to listOf(readUser.id),
+                            "date" to date,
+                        ),
                     ),
                 ),
-            ),
-        )
+            )
+        }
+    }
+
+    fun updateMessageStatusesToDelivered(
+        deliveredUser: UserJWTClaim,
+        messageIds: List<UUID>,
+    ) {
+        val messageIdsSet = messageIds.toSet()
+        val userId = UUID.fromString(deliveredUser.id)
+        val date = Date()
+        val statuses = messageStatusRepository.findAllByMessageIdInAndUserId(messageIds, userId)
+        val existingStatusSet = mutableSetOf<UUID>()
+        println("statuses: $statuses")
+        var actualUpdateCount = 0
+        statuses.forEach {
+            if (!it.isDelivered) {
+                actualUpdateCount++
+                it.isDelivered = true
+                it.deliveredAt = date
+            }
+            existingStatusSet.add(it.message.id)
+        }
+
+        val missingMessageIds = messageIdsSet.minus(existingStatusSet)
+        if (missingMessageIds.isNotEmpty()) {
+            messageStatusRepository.saveAll(
+                missingMessageIds.map {
+                    MessageStatus().apply {
+                        message = Message().apply { id = it }
+                        user = User().apply { id = userId }
+                        isDelivered = true
+                        deliveredAt = date
+                    }
+                },
+            )
+
+            actualUpdateCount = messageIds.size
+        } else {
+            if (actualUpdateCount > 0) {
+                messageStatusRepository.saveAll(statuses)
+            }
+        }
+
+        if (actualUpdateCount > 0) {
+            kafkaUtils.producer!!.send(
+                kafkaUtils.createCommonProducerRecord(
+                    KafkaMessage(
+                        SocketEventType.ROOM_MESSAGE_DELIVERED,
+                        KafkaMessageType.ROOM_MESSAGE_DELIVERED,
+                        mapOf(
+                            "messageIds" to messageIds.map { it.toString() },
+                            "userIds" to listOf(deliveredUser.id),
+                            "date" to date,
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+
+    fun sendRoomMessageStatusEvent(kafkaMessage: KafkaMessage) {
+        val messageIds = kafkaMessage.data!!["messageIds"] as List<String>
+        val userIdSet =
+            messageRepository.findSenderUserIdByMessageIdsIn(messageIds.map { UUID.fromString(it) })
+                .map { it.toString() }.toSet()
+        socketIOServer.allClients.filter {
+            val user = SocketIOConfig.getUserJWTClaim(it.handshakeData)!!
+            userIdSet.contains(user.id)
+        }.map {
+            it.sendEvent(kafkaMessage.eventType.toString(), kafkaMessage.data)
+        }
     }
 }

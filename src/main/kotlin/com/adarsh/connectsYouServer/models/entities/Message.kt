@@ -3,16 +3,10 @@ package com.adarsh.connectsYouServer.models.entities
 import com.adarsh.connectsYouServer.models.enums.MessageTypeEnum
 import com.adarsh.connectsYouServer.utils.JSON
 import com.fasterxml.jackson.annotation.JsonProperty
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.Id
-import jakarta.persistence.ManyToOne
+import jakarta.persistence.*
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
-import java.util.Date
-import java.util.UUID
+import java.util.*
 
 @Entity(name = "messages")
 data class Message(
@@ -22,6 +16,7 @@ data class Message(
     var room: Room,
     @ManyToOne(targetEntity = User::class)
     var senderUser: User,
+    @Column(columnDefinition = "TEXT")
     var message: String,
     @Enumerated(EnumType.STRING)
     var type: MessageTypeEnum,

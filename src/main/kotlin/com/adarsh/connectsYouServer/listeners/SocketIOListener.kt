@@ -66,6 +66,7 @@ class SocketIOListener(
         val roomId = kafkaMessage.data!!["roomId"].toString()
         val roomOperation = socketIOServer.getRoomOperations(roomId)
         roomOperation.sendEvent(kafkaMessage.eventType.toString(), data)
+
         if (kafkaMessage.eventType == SocketEventType.ROOM_MESSAGE) {
             val userIds = mutableListOf<String>()
             var senderUserClient: SocketIOClient? = null
@@ -80,7 +81,6 @@ class SocketIOListener(
             messageService.updateMessageStatusesToDelivered(
                 data["id"].toString(),
                 userIds,
-                roomId,
             )
         }
     }
@@ -99,23 +99,8 @@ class SocketIOListener(
                 roomService.sendGroupJoinedEvent(kafkaMessage)
             }
 
-            KafkaMessageType.ROOM_MESSAGE_DELIVERED -> {
-                val userIdSet = (kafkaMessage.data!!["userIds"] as List<String>).toSet()
-                socketIOServer.allClients.filter {
-                    val user = SocketIOConfig.getUserJWTClaim(it.handshakeData)!!
-                    userIdSet.contains(user.id)
-                }.map {
-                    it.sendEvent(kafkaMessage.eventType.toString(), kafkaMessage.data)
-                }
-            }
-
-            KafkaMessageType.ROOM_MESSAGE_READ -> {
-                socketIOServer.allClients.filter {
-                    val user = SocketIOConfig.getUserJWTClaim(it.handshakeData)!!
-                    user.id == kafkaMessage.data!!["userId"] as String
-                }.map {
-                    it.sendEvent(kafkaMessage.eventType.toString(), kafkaMessage.data)
-                }
+            KafkaMessageType.ROOM_MESSAGE_DELIVERED, KafkaMessageType.ROOM_MESSAGE_READ -> {
+                messageService.sendRoomMessageStatusEvent(kafkaMessage)
             }
 
             else -> {

@@ -11,20 +11,17 @@ import com.adarsh.connectsYouServer.repositories.UserRepository
 import com.adarsh.connectsYouServer.utils.JWTUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseToken
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.io.IOException
 import java.security.GeneralSecurityException
-import java.util.UUID
+import java.util.*
 
 @Service
 class AuthService(
     private val userRepository: UserRepository,
     private val userLoginRepository: UserLoginDeviceRepository,
     private val jwtUtils: JWTUtils,
-    @Value("\${app.hash.key}") private val hashKey: String,
-    @Value("\${google.client.id}") private val googleClientId: String,
 ) {
     @Throws(GeneralSecurityException::class, IOException::class)
     private fun validateGoogleOAuthToken(token: String): FirebaseToken {
@@ -37,6 +34,7 @@ class AuthService(
         val fcmToken = authRequest.fcmToken
         val deviceId = authRequest.deviceInfo.deviceId
         val userPayload = validateGoogleOAuthToken(incomingGoogleToken)
+        println("User Payload: ${userPayload.name}")
         val existingUser = userRepository.findByEmail(userPayload.email)
         val user: User
         val method: String
