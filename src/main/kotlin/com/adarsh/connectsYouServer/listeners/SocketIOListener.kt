@@ -13,7 +13,7 @@ import com.corundumstudio.socketio.SocketIOServer
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Component
-import java.util.Date
+import java.util.*
 
 @Component
 class SocketIOListener(
@@ -65,6 +65,7 @@ class SocketIOListener(
         val data = (kafkaMessage.data as Map<String, *>)
         val roomId = kafkaMessage.data!!["roomId"].toString()
         val roomOperation = socketIOServer.getRoomOperations(roomId)
+        println("Room operation: $kafkaMessage")
         roomOperation.sendEvent(kafkaMessage.eventType.toString(), data)
 
         if (kafkaMessage.eventType == SocketEventType.ROOM_MESSAGE) {
@@ -110,7 +111,7 @@ class SocketIOListener(
     }
 
     private final fun addEventListeners() {
-        socketIOServer.addEventListener("event", String::class.java, onEvent())
+        socketIOServer.addEventListener(SocketEventType.USER_TYPING.toString(), Map::class.java, onTyping())
     }
 
     private final fun onConnect(client: SocketIOClient) {
@@ -167,13 +168,21 @@ class SocketIOListener(
         SocketIOConfig.removeUserJWTClaim(client.handshakeData)
     }
 
-    private final fun onEvent() =
+    private final fun onTyping() =
         fun(
-            client: SocketIOClient,
-            data: String,
-            ackRequest: AckRequest,
+            _: SocketIOClient,
+            data: Map<*, *>,
+            _: AckRequest,
         ) {
-            logger.info("Received data: $data from client: ${client.remoteAddress}")
-            ackRequest.sendAckData("Server received data!")
+            val roomId = data["roomId"].toString()
+            kafkaUtils.producer!!.send(
+                kafkaUtils.createRoomProducerRecord(
+                    roomId,
+                    KafkaMessage(
+                        SocketEventType.USER_TYPING,
+                        data = data,
+                    ),
+                ),
+            )
         }
 }
