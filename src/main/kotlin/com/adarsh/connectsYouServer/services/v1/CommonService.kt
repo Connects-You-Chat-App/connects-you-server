@@ -8,8 +8,7 @@ import io.vertx.core.json.Json
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.springframework.stereotype.Service
-import java.util.Date
-import java.util.UUID
+import java.util.*
 
 @Service
 class CommonService(
@@ -43,17 +42,30 @@ class CommonService(
                     Pair(sharedKeysResponse.await(), roomIdsResponse.await())
                 }.await()
             val roomUUIDs = roomIds.map { UUID.fromString(it) }
-            println("roomUUIDs: $roomUUIDs")
             val roomsAsync = async { roomService.fetchUpdatedDataAfter(userId, roomUUIDs, updatedAt) }
             val messagesAsync =
                 async {
-                    messageService.fetchMessagesByRoomIdsAfter(roomUUIDs, updatedAt)
+                    messageService.fetchMessagesByRoomIdsAfter(
+                        userId,
+                        roomUUIDs,
+                        updatedAt,
+                    )
                 }
 
             sharedKeys = sharedKeysResponse
-            rooms = roomsAsync.await()
+
             messages = messagesAsync.await()
-            println("rooms: $rooms")
+            val messageIdsNotSentByMe =
+                messages.filter {
+                    it["senderUserId"].toString() != user.id
+                }.map { it["id"] as UUID }
+
+            println("messageIdsNotSentByMe: $messageIdsNotSentByMe")
+            async {
+                messageService.updateMessageStatusesToDelivered(user, messageIdsNotSentByMe)
+            }.await()
+
+            rooms = roomsAsync.await()
         }
 
         val messageList =
@@ -72,6 +84,17 @@ class CommonService(
                         otherUser = userMap
                     }
                 }
+                val messageStatuses =
+                    (it["messageStatuses"] as Array<*>).map { messageStatus ->
+                        val status = Json.decodeValue(messageStatus.toString(), Map::class.java)
+                        mapOf(
+                            "userId" to status["userId"].toString(),
+                            "deliveredAt" to status["deliveredAt"],
+                            "readAt" to status["readAt"],
+                            "isDelivered" to status["isDelivered"],
+                            "isRead" to status["isRead"],
+                        )
+                    }
 
                 mapOf(
                     "id" to it["id"],
@@ -92,6 +115,7 @@ class CommonService(
                             "updatedAt" to room["updatedAt"],
                         ),
                     "otherUser" to otherUser,
+                    "messageStatuses" to messageStatuses,
                 )
             }
 

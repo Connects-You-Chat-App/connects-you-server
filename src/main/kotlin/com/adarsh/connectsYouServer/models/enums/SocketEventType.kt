@@ -4,13 +4,14 @@ enum class SocketEventType {
     USER_PRESENCE,
     USER_OFFLINE,
     USER_TYPING,
-    USER_STOP_TYPING,
     DUET_ROOM_CREATED,
     GROUP_INVITATION,
     GROUP_JOINED,
     ROOM_MESSAGE,
     ROOM_MESSAGE_EDIT,
     USER_STATUS,
+    ROOM_MESSAGE_DELIVERED,
+    ROOM_MESSAGE_READ,
     ;
 
     companion object {

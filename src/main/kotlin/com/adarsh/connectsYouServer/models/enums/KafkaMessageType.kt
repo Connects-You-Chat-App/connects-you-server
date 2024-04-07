@@ -5,6 +5,8 @@ enum class KafkaMessageType {
     GROUP_INVITATION,
     GROUP_JOINED,
     DUET_ROOM_CREATED_MESSAGE,
+    ROOM_MESSAGE_DELIVERED,
+    ROOM_MESSAGE_READ,
     ;
 
     companion object {

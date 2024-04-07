@@ -4,6 +4,7 @@ import com.adarsh.connectsYouServer.configs.SocketIOConfig
 import com.adarsh.connectsYouServer.models.common.KafkaMessage
 import com.adarsh.connectsYouServer.models.enums.KafkaMessageType
 import com.adarsh.connectsYouServer.models.enums.SocketEventType
+import com.adarsh.connectsYouServer.services.v1.MessageService
 import com.adarsh.connectsYouServer.services.v1.RoomService
 import com.adarsh.connectsYouServer.utils.KafkaUtils
 import com.corundumstudio.socketio.AckRequest
@@ -12,7 +13,7 @@ import com.corundumstudio.socketio.SocketIOServer
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Component
-import java.util.Date
+import java.util.*
 
 @Component
 class SocketIOListener(
@@ -21,6 +22,7 @@ class SocketIOListener(
     private val kafkaConsumers: KafkaConsumers,
     private val redisTemplate: RedisTemplate<String, Any>,
     private val roomService: RoomService,
+    private val messageService: MessageService,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -60,8 +62,28 @@ class SocketIOListener(
     }
 
     private final fun consumeRoomMessages(kafkaMessage: KafkaMessage) {
-        socketIOServer.getRoomOperations(kafkaMessage.data!!["roomId"].toString())
-            .sendEvent(kafkaMessage.eventType.toString(), kafkaMessage.data)
+        val data = (kafkaMessage.data as Map<String, *>)
+        val roomId = kafkaMessage.data!!["roomId"].toString()
+        val roomOperation = socketIOServer.getRoomOperations(roomId)
+        println("Room operation: $kafkaMessage")
+        roomOperation.sendEvent(kafkaMessage.eventType.toString(), data)
+
+        if (kafkaMessage.eventType == SocketEventType.ROOM_MESSAGE) {
+            val userIds = mutableListOf<String>()
+            var senderUserClient: SocketIOClient? = null
+            for (client in roomOperation.clients) {
+                val user = SocketIOConfig.getUserJWTClaim(client.handshakeData)!!
+                if (user.id == (data["senderUser"] as Map<String, *>)["id"].toString()) {
+                    senderUserClient = client
+                    continue
+                }
+                userIds.add(user.id)
+            }
+            messageService.updateMessageStatusesToDelivered(
+                data["id"].toString(),
+                userIds,
+            )
+        }
     }
 
     private final fun consumerCommonMessages(kafkaMessage: KafkaMessage) {
@@ -78,6 +100,10 @@ class SocketIOListener(
                 roomService.sendGroupJoinedEvent(kafkaMessage)
             }
 
+            KafkaMessageType.ROOM_MESSAGE_DELIVERED, KafkaMessageType.ROOM_MESSAGE_READ -> {
+                messageService.sendRoomMessageStatusEvent(kafkaMessage)
+            }
+
             else -> {
                 return
             }
@@ -85,7 +111,7 @@ class SocketIOListener(
     }
 
     private final fun addEventListeners() {
-        socketIOServer.addEventListener("event", String::class.java, onEvent())
+        socketIOServer.addEventListener(SocketEventType.USER_TYPING.toString(), Map::class.java, onTyping())
     }
 
     private final fun onConnect(client: SocketIOClient) {
@@ -142,13 +168,21 @@ class SocketIOListener(
         SocketIOConfig.removeUserJWTClaim(client.handshakeData)
     }
 
-    private final fun onEvent() =
+    private final fun onTyping() =
         fun(
-            client: SocketIOClient,
-            data: String,
-            ackRequest: AckRequest,
+            _: SocketIOClient,
+            data: Map<*, *>,
+            _: AckRequest,
         ) {
-            logger.info("Received data: $data from client: ${client.remoteAddress}")
-            ackRequest.sendAckData("Server received data!")
+            val roomId = data["roomId"].toString()
+            kafkaUtils.producer!!.send(
+                kafkaUtils.createRoomProducerRecord(
+                    roomId,
+                    KafkaMessage(
+                        SocketEventType.USER_TYPING,
+                        data = data,
+                    ),
+                ),
+            )
         }
 }
